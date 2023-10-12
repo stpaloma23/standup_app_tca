@@ -34,13 +34,14 @@ struct StandupsFormFeature: Reducer {
 //        case setDuration(Duration)
 //        case setTheme(Theme)
     }
+    @Dependency(\.uuid) var uuid
     var body: some ReducerOf<Self> {
         BindingReducer()
         Reduce { state, action in
             switch action {
                 
             case .addAttendeeButtonTapped:
-                let id = UUID()
+                let id = self.uuid()
                 state.standup.attendees.append(Attendee(id: id))
                 state.focus = .attendee(id)
                 return .none
@@ -48,7 +49,7 @@ struct StandupsFormFeature: Reducer {
             case let .deleteAttendees(atOffsets: indicies):
                 state.standup.attendees.remove(atOffsets: indicies)
                 if state.standup.attendees.isEmpty{
-                    state.standup.attendees.append(Attendee(id: UUID()))
+                    state.standup.attendees.append(Attendee(id: self.uuid()))
                 }
                 guard let firstIndex = indicies.first
                 else { return .none}
@@ -65,14 +66,14 @@ struct StandupsFormFeature: Reducer {
 }
 struct StandupFormView: View {
     let store: StoreOf<StandupsFormFeature>
+    @FocusState var focus: StandupsFormFeature.State.Field?
     
-    @State private var text = ""
-    @State private var val = 5.0
     var body: some View {
         WithViewStore(self.store, observe:{$0}) { viewStore in
             Form {
                 Section{
                     TextField("Title:", text: viewStore.$standup.title)
+                        .focused(self.$focus, equals:.title)
                     HStack{
                         Slider(value:viewStore.$standup.duration.minutes, in: 5...30, step: 1){
                             Text("Length")
@@ -87,6 +88,7 @@ struct StandupFormView: View {
                 Section {
                     ForEach(viewStore.$standup.attendees){ $attendee in
                         TextField("Name", text: $attendee.name)
+                            .focused(self.$focus, equals: .attendee($attendee.id))
                     }
                     .onDelete{indicies in
                         viewStore.send(.deleteAttendees(atOffsets: indicies))
@@ -98,6 +100,7 @@ struct StandupFormView: View {
                     Text("Attendees")
                 }
             }
+            .bind(viewStore.$focus, to: self.$focus)
         }
     }
 }
